@@ -1,0 +1,4 @@
+lib
+.rts2*
+node_modules
+playground

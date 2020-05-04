@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    // "strict": true,
+    "declaration": true,
+    "target": "esnext",
+    "sourceMap": true,
+    "lib": ["esnext", "dom"],
+    "module": "ESNext",
+    "rootDir": "src",
+    "baseUrl": "."
+  },
+  "include": ["./src/**/*.ts"],
+  "exclude": ["node_modules", "./src/test", "./src/**/*.test.ts"]
+}
