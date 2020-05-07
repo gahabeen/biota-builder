@@ -20,13 +20,16 @@
     "lib"
   ],
   "scripts": {
-    "dev": "microbundle watch",
+    "dev": "microbundle watch --format cjs --no-compress",
+    "start": "microbundle watch --no-compress",
     "build": "microbundle",
     "test": "jest"
   },
-  "dependencies": {},
   "peerDependencies": {
     "faunadb": "^2.13.1"
+  },
+  "dependencies_": {
+    "@biota/types": "file:./../biota-types"
   },
   "devDependencies": {
     "@babel/cli": "^7.8.4",
@@ -34,14 +37,15 @@
     "@babel/plugin-transform-runtime": "^7.9.6",
     "@babel/preset-env": "^7.9.6",
     "@babel/preset-typescript": "^7.9.0",
+    "@biota/test": "file:../biota-test",
     "@types/jest": "^25.1.4",
     "@typescript-eslint/eslint-plugin": "^2.29.0",
     "@typescript-eslint/parser": "^2.29.0",
     "dotenv": "^8.2.0",
     "eslint": "^6.8.0",
-    "faunadb": "^2.13.1",
+    "faunadb": "file:../../forks/faunadb-js",
     "jest": "^25.1.0",
-    "microbundle": "^0.11.0",
+    "microbundle": "^0.12.0-next.9",
     "prettier": "^2.0.4",
     "ts-jest": "^25.2.1"
   },

@@ -1,6 +1,6 @@
-import { Expr, query as q, Client as FaunaClient } from 'faunadb';
-import { FaunaObject } from 'src/types/fauna';
+import { Expr, query as q, ExprVal } from 'faunadb';
 import {
+  FaunaObject,
   BiotaBuilderDefinition,
   BiotaBuilderDefinitionHandler,
   BiotaBuilderDefinitionKeyed,
@@ -8,26 +8,26 @@ import {
   BiotaBuilderMethodOutputAPIKeyed,
   BiotaBuilderOptions,
   BiotaBuilderOptionsActionOptions,
-} from './types/builder';
+} from '@biota/types';
 import { functionArgumentsNames } from './utils/functionArgumentsNames';
 
-function functionToLet(this: any, fn: BiotaBuilderDefinitionHandler) {
-  const self = this;
-  return function (...args: any[]) {
-    const params = functionArgumentsNames(fn);
-    const bindings: any = {};
-    for (const i of Object.keys(params)) {
-      bindings[params[i]] = args[+i] || null;
-    }
-    return q.Let(
-      bindings,
-      fn.apply(
-        self,
-        params.map((param: string) => q.Var(param)),
-      ),
-    );
-  };
-}
+// function functionToLet(this: any, fn: BiotaBuilderDefinitionHandler) {
+//   const self = this;
+//   return function (...args: any[]) {
+//     const params = functionArgumentsNames(fn);
+//     const bindings: any = {};
+//     for (const i of Object.keys(params)) {
+//       bindings[params[i]] = args[+i] || null;
+//     }
+//     return q.Let(
+//       bindings,
+//       fn.apply(
+//         self,
+//         params.map((param: string) => q.Var(param)),
+//       ),
+//     );
+//   };
+// }
 
 function functionToExpresion(this: any, fn: BiotaBuilderDefinitionHandler, params: string[] = []) {
   return fn.apply(
@@ -40,8 +40,9 @@ function definitionMethodPath(path: string, name: string) {
   return typeof path === 'string' && path.length > 0 ? `${path}.${name}` : name;
 }
 
-function definitionUDFName(path: string, name: string) {
-  const list = typeof path === 'string' && path.length > 0 ? [...path.split('.'), name] : [name];
+function definitionUDFName(path: string, name?: string) {
+  const list = typeof path === 'string' && path.length > 0 ? path.split('.') : [];
+  if (name) list.push(name);
   return list.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
 }
 
@@ -67,7 +68,22 @@ export class Builder {
     }
   }
 
-  identity: (ctx: FaunaObject) => Expr;
+  get vars() {
+    return {
+      annotationName: q.Var('annotationName'),
+      annotationData: q.Var('annotationData'),
+      annotationOutput: q.Var('annotationOutput'),
+      actionName: q.Var('actionName'),
+      actionUser: q.Var('actionUser'),
+      actionRef: q.Var('actionRef'),
+    };
+  }
+
+  identity: (ctx: FaunaObject) => ExprVal;
+
+  methodName(path: string) {
+    return definitionUDFName(path);
+  }
 
   methods(definitionsObject: BiotaBuilderDefinitionKeyed): BiotaBuilderMethodOutputAPIKeyed {
     const definitions: BiotaBuilderMethodOutputAPIKeyed = {};
@@ -83,9 +99,9 @@ export class Builder {
     const { before, query, after, context = (ctx: any) => ctx } = definition || {};
     const methods = [before, query, after].filter((f) => typeof f === 'function');
     const paramsList = methods.map((method) => functionArgumentsNames(method));
-    const params =
+    const params: string[] =
       definition.params ||
-      paramsList.reduce((list, params) => {
+      (paramsList.reduce((list, params) => {
         const isUnderscoreOnly = (item: string) => item.replace('_', '');
         if (list.length === 0) {
           list = params;
@@ -95,34 +111,38 @@ export class Builder {
           }
         }
         return list;
-      }, []);
+      }, []) as string[]);
 
-    const extend = (bindings: Object) => (next: Expr) => q.Let(bindings, next);
+    const extend = (bindings: Object) => (next: ExprVal) => q.Let(bindings, next);
 
     const _pipe = (a: (i: any) => any, b: (i: any) => any) => (arg: any) => b(a(arg));
     const pipe = (...ops: ((i: any) => any)[]) => ops.reduce(_pipe);
-    const compose = (...ops: ((i: any) => any)[]) => ops.reverse().reduce(_pipe);
 
     const methodPath = definitionMethodPath(definition.path, definition.name);
     const UDFName = definitionUDFName(definition.path, definition.name);
     let ctx: any = null;
 
+    const makeInputsObj = (...args: any[]) => {
+      const inputs: any = {};
+      for (const idx of Object.keys(args)) {
+        if (!params[idx]) {
+          throw new Error(`Either a parameter is missing or there are too many arguments (${args.length})`);
+        }
+        inputs[params[idx]] = args[idx];
+      }
+      return inputs;
+    };
+
     let api: BiotaBuilderMethodOutputAPI = {
       definition() {
         return definition;
       },
-      context(ctxInUse) {
-        ctx = ctxInUse;
+      context(ctxToUse) {
+        ctx = ctxToUse;
         return api;
       },
       query(...args) {
-        const inputs: any = {};
-        for (const idx of Object.keys(args)) {
-          if (!params[idx]) {
-            throw new Error(`Either a parameter is missing or there are too many arguments (${args.length})`);
-          }
-          inputs[params[idx]] = args[idx];
-        }
+        const inputs: any = makeInputsObj(...args);
 
         const beforeLet = typeof before === 'function' ? functionToExpresion(before, params as string[]) : {};
         const queryLet = typeof query === 'function' ? functionToExpresion(query, params as string[]) : {};
@@ -175,7 +195,11 @@ export class Builder {
           );
         }
 
-        composition.push(extend({ response: queryLet }));
+        composition.push(
+          extend({
+            response: queryLet,
+          }),
+        );
 
         if (definition.action) {
           composition.push(
@@ -191,7 +215,7 @@ export class Builder {
           composition.push(extend(afterLet));
         }
 
-        const expression = compose(...composition)({
+        const expression = pipe(...composition.reverse())({
           response: q.Var('response'),
           success: q.Select('success', q.Var('ctx'), true),
           actions: q.Select('actions', q.Var('ctx'), []),
@@ -204,8 +228,21 @@ export class Builder {
       copy(definitionPart) {
         return { ...definition, ...definitionPart };
       },
-      udf() {},
-      call() {},
+      udf() {
+        return {
+          name: UDFName,
+          body: q.Query(
+            q.Lambda(
+              ['ctx', 'params'],
+              api.context(ctx).query(...params.map((param) => q.Select(param, q.Var('params'), null))),
+            ),
+          ),
+        };
+      },
+      call(...args) {
+        const inputs: any = makeInputsObj(...args);
+        return q.Call(UDFName, ctx, inputs);
+      },
     };
 
     return api;

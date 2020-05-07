@@ -10,7 +10,8 @@
     "lib": ["esnext", "dom"],
     "module": "ESNext",
     "rootDir": "src",
-    "baseUrl": "."
+    "baseUrl": ".",
+    "preserveSymlinks": true
   },
   "include": ["./src/**/*.ts"],
   "exclude": ["node_modules", "./src/test", "./src/**/*.test.ts"]

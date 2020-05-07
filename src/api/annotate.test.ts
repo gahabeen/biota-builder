@@ -1,5 +1,5 @@
+import { client } from '@biota/test';
 import { annotate } from './annotate';
-import { client } from './test';
 
 const testAnnotation = (action: string, pathBy: string, pathAt: string) => {
   test(action, async (done) => {

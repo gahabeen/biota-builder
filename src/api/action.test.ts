@@ -1,6 +1,5 @@
-import { q, database } from './test';
+import { database, q } from '@biota/test';
 import { action } from './action';
-import { FaunaRef } from './types/fauna';
 
 describe('annotate', () => {
   let global = {

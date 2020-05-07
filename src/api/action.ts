@@ -1,8 +1,9 @@
-import { query as q, ExprArg } from 'faunadb';
-import { Builder } from './builder';
+import { BiotaBuilderActionApi } from '@biota/types';
+import { ExprArg, query as q } from 'faunadb';
+import { Builder } from '../builder';
 
-const build = new Builder({ path: 'action' });
-export const action = build.methods({
+const build = new Builder({ path: 'biota.builder.action' });
+export const action: BiotaBuilderActionApi = (build.methods({
   log: {
     name: 'log',
     params: ['name', 'instance'],
@@ -25,4 +26,4 @@ export const action = build.methods({
       );
     },
   },
-});
+}) as unknown) as BiotaBuilderActionApi;

@@ -1,7 +1,7 @@
 import { query as q } from 'faunadb';
-import { Builder } from './builder';
+import { Builder } from '../builder';
 
-const build = new Builder();
+const build = new Builder({ path: 'biota.builder' });
 const userIdentity = build.identity(q.Var('ctx'));
 
 export const annotate = build.method({
